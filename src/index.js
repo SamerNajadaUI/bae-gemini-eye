@@ -257,7 +257,10 @@ async function upChunk(args, env) {
     headers: { "Content-Length": String(bytes.byteLength), "X-Goog-Upload-Offset": String(Math.floor(+args.offset || 0)), "X-Goog-Upload-Command": args.last ? "upload, finalize" : "upload" },
     body: bytes,
   });
-  if (!r.ok) return toolError(`Gemini rejected the chunk (${r.status}).`);
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    return toolError(`Gemini rejected the chunk at ${Math.floor(+args.offset || 0)} (${r.status}): ${t.slice(0, 300)} [status ${r.headers.get("x-goog-upload-status") || "?"}, sent ${bytes.byteLength} bytes]`);
+  }
   if (!args.last) return { content: [{ type: "text", text: JSON.stringify({ received: bytes.byteLength }) }], structuredContent: { received: bytes.byteLength } };
   const j = await r.json().catch(() => ({}));
   const f = j.file || {};
